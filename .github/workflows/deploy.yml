@@ -1,0 +1,49 @@
+name: CI/CD K8s Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    
+    # Step 1: Clone the code
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Step 2: Authenticate with Docker Hub
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    # Step 3: Build and push the container image tagged with the Git commit hash
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_HUB_USERNAME }}/sample-app:${{ github.sha }}
+
+    # Step 4: Inject the unique image tag into the K8s manifest
+    - name: Update Kubernetes Manifest
+      run: |
+        sed -i "s|DOCKER_HUB_USERNAME/sample-app:IMAGE_TAG|${{ secrets.DOCKER_HUB_USERNAME }}/sample-app:${{ github.sha }}|g" k8s/deployment.yaml
+
+    # Step 5: Configure access to your Kubernetes cluster
+    - name: Set up Kubeconfig
+      uses: azure/k8s-set-context@v3
+      with:
+        method: kubeconfig
+        kubeconfig: ${{ secrets.KUBECONFIG }}
+
+    # Step 6: Roll out the changes
+    - name: Deploy to Kubernetes
+      run: |
+        kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/deployment.yaml
+
