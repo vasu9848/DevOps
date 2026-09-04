@@ -28,6 +28,7 @@ jobs:
         context: .
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ github.sha }}
+        network: host
 
     # Step 4: Inject the unique image tag into the K8s manifest
     - name: Update Kubernetes Manifest
